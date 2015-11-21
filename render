@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use IPC::Open2;
+use IPC::Open3;
+use File::Temp qw/ tempfile /;
+use POSIX qw(ceil);
+
+print "Reading from " . $ARGV[0] . "\n";
+
+local $/ = undef;
+
+my $file = $ARGV[0];
+my $text = do {
+    open my $fh, '<:encoding(UTF-8)', $file
+        or die "could not open $file: $!";
+    <$fh>;
+};
+
+my $outdir = $file;
+$outdir =~ s,^.*/([^/]+)\.txt$,$1,;
+mkdir $outdir unless -d $outdir;
+print "Writing to $outdir\n";
+
+my @pieces = split("\n\n", $text);
+
+my $count = scalar(@pieces);
+my $count_places = ceil(log($count)/log(10));
+open(BACKWARD, ">", $outdir."/backward.m3u");
+open(FORWARD, ">", $outdir."/forward.m3u");
+for (my $i = 0; $i < $count; $i++) {
+    my $outfile = sprintf("%0".$count_places."d.mp3", $i);
+    print(".$i.");
+    open2(\*ESPEAK_OUT, \*ESPEAK_IN, 'espeak --stdout') or die "open2() failed $!";
+    print ESPEAK_IN $pieces[$i];
+    close(ESPEAK_IN);
+    my $sound = <ESPEAK_OUT>;
+    close(ESPEAK_OUT);
+
+    open3(\*LENGTH_IN, \*LENGTH_OUT, \*LENGTH_ERR, 'sox - -n stat ') or die "open3() failed $!";
+    print LENGTH_IN $sound;
+    close(LENGTH_IN);
+    my $seconds = <LENGTH_ERR>;
+    $seconds =~ s/.*Length \(seconds\): *([0-9.]+).*/$1/s;
+    close(LENGTH_OUT);
+    close(LENGTH_ERR);
+
+    my($fh, $tmpfile) = tempfile("XXXXXXXX", SUFFIX => '.wav', UNLINK => 1);
+    open(PAD, "|-", "sox", "-", $tmpfile, "pad", "0", $seconds) or die "open() failed $!";
+    print PAD $sound;
+    close(PAD);
+    close($fh);
+
+    system("lame", "--quiet", $tmpfile, $outdir."/".$outfile);
+
+    print BACKWARD "$outfile\n";
+    print FORWARD sprintf("%0".$count_places."d", $count - $i - 1) . ".mp3\n";
+}
+print("\n");
+
+close(BACKWARD);
+close(FORWARD);

@@ -23,7 +23,7 @@ $outdir =~ s,^.*/([^/]+)\.txt$,$1,;
 mkdir $outdir unless -d $outdir;
 print "Writing to $outdir\n";
 
-my @pieces = split("\n\n", $text);
+my @pieces = split("\n{2,}", $text);
 
 my $count = scalar(@pieces);
 my $count_places = ceil(log($count)/log(10));
@@ -37,6 +37,7 @@ for (my $i = 0; $i < $count; $i++) {
     close(ESPEAK_IN);
     my $sound = <ESPEAK_OUT>;
     close(ESPEAK_OUT);
+    if($?) { die "Failed to synthesize \"" . $pieces[$i] . "\"\n"; }
 
     open3(\*LENGTH_IN, \*LENGTH_OUT, \*LENGTH_ERR, 'sox - -n stat ') or die "open3() failed $!";
     print LENGTH_IN $sound;

@@ -14,10 +14,10 @@ by reading it yourself.
 ## Usage
 
 The name of the source file must have the suffix `.txt` and its
-contents must be text.  Each block of text separated by two newlines
+contents must be text.  Each block of text separated by two (or more) newlines
 will be converted to a separate sound file.  All sound files and
 playlists will be written to a directory having the same name as the
-source file except for the `.txt` suffix.  The directory will be
+source file except for the `.txt` suffix.  This output directory will be
 created if necessary.
 
 The name of the script is `render`, so
@@ -28,7 +28,7 @@ will create a directory named `mylecture` into which the resulting
 sound and playlist files will go.  The sound files are numbered in
 descending order, and two playlists are created named `backward.m3u`
 and `forward.m3u`.  Each sound file is padded with silence so you can
-listen and repeat.
+listen and repeat while looping.
 
 The suggested technique is to memorize the files in ascending
 numerical order, that is in the reverse of the order in which you wish

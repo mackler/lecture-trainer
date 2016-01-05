@@ -33,6 +33,7 @@ for (my $i = 0; $i < $count; $i++) {
     my $outfile = sprintf("%0".$count_places."d.mp3", $i);
     print(".$i.");
     open2(\*ESPEAK_OUT, \*ESPEAK_IN, 'espeak --stdout') or die "open2() failed $!";
+    $pieces[$i] =~ s/[\n\r]+/ /sg;
     print ESPEAK_IN $pieces[$i];
     close(ESPEAK_IN);
     my $sound = <ESPEAK_OUT>;

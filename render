@@ -7,6 +7,11 @@ use IPC::Open3;
 use File::Temp qw/ tempfile /;
 use POSIX qw(ceil);
 
+unless ($ARGV[0]) {
+    print STDERR "usage: $0 <textfile-name>\n";
+    exit 1;
+}
+
 print "Reading from " . $ARGV[0] . "\n";
 
 local $/ = undef;
@@ -18,27 +23,35 @@ my $text = do {
     <$fh>;
 };
 
+my $debug = 1;
 my $outdir = $file;
-$outdir =~ s,^.*/([^/]+)\.txt$,$1,;
-mkdir $outdir unless -d $outdir;
-print "Writing to $outdir\n";
+$outdir =~ s,^.*/([^/]+)\.txt$,audio/$1,;
+unless (-d "audio") { mkdir "audio" or die "unable to make audio folder: $!"; }
+unless (-d $outdir) {
+  mkdir $outdir or die "unable to make $outdir: $!";
+}
+print "Writing audio files to $outdir\n";
 
 my @pieces = split("\n{2,}", $text);
 
 my $count = scalar(@pieces);
+# How many leading zeroes in the filenames?
 my $count_places = ceil(log($count)/log(10));
 open(BACKWARD, ">", $outdir."/backward.m3u");
 open(FORWARD, ">", $outdir."/forward.m3u");
+#for (my $i = 0; $i < $count; $i++) {
 for (my $i = 0; $i < $count; $i++) {
     my $outfile = sprintf("%0".$count_places."d.mp3", $i);
     print(".$i.");
+    my($index) = $count - 1 - $i;
+    $pieces[$index] =~ s/[\n\r]+/ /sg;
+    if ($debug) { print($pieces[$index] . "\n"); }
     open2(\*ESPEAK_OUT, \*ESPEAK_IN, 'espeak --stdout') or die "open2() failed $!";
-    $pieces[$i] =~ s/[\n\r]+/ /sg;
-    print ESPEAK_IN $pieces[$i];
+    print ESPEAK_IN $pieces[$index];
     close(ESPEAK_IN);
     my $sound = <ESPEAK_OUT>;
     close(ESPEAK_OUT);
-    if($?) { die "Failed to synthesize \"" . $pieces[$i] . "\"\n"; }
+    if($?) { die "Failed to synthesize \"" . $pieces[$index] . "\"\n"; }
 
     open3(\*LENGTH_IN, \*LENGTH_OUT, \*LENGTH_ERR, 'sox - -n stat ') or die "open3() failed $!";
     print LENGTH_IN $sound;
@@ -57,7 +70,7 @@ for (my $i = 0; $i < $count; $i++) {
     system("lame", "--quiet", $tmpfile, $outdir."/".$outfile);
 
     print BACKWARD "$outfile\n";
-    print FORWARD sprintf("%0".$count_places."d", $count - $i - 1) . ".mp3\n";
+    print FORWARD sprintf("%0".$count_places."d", $index) . ".mp3\n";
 }
 print("\n");
 

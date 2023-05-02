@@ -25,7 +25,7 @@ my $text = do {
 
 my $debug = 1;
 my $outdir = $file;
-$outdir =~ s,^.*/([^/]+)\.txt$,audio/$1,;
+$outdir =~ s,^(.*/)?([^/]+)\.txt$,audio/$2,;
 unless (-d "audio") { mkdir "audio" or die "unable to make audio folder: $!"; }
 unless (-d $outdir) {
   mkdir $outdir or die "unable to make $outdir: $!";
@@ -35,18 +35,18 @@ print "Writing audio files to $outdir\n";
 my @pieces = split("\n{2,}", $text);
 
 my $count = scalar(@pieces);
-# How many leading zeroes in the filenames?
-my $count_places = ceil(log($count)/log(10));
+# How many leading zeroes needed in the filenames?
+my $count_places = length($count);
 open(BACKWARD, ">", $outdir."/backward.m3u");
 open(FORWARD, ">", $outdir."/forward.m3u");
 #for (my $i = 0; $i < $count; $i++) {
 for (my $i = 0; $i < $count; $i++) {
     my $outfile = sprintf("%0".$count_places."d.mp3", $i);
-    print(".$i.");
+    print("$i. ");
     my($index) = $count - 1 - $i;
     $pieces[$index] =~ s/[\n\r]+/ /sg;
     if ($debug) { print($pieces[$index] . "\n"); }
-    open2(\*ESPEAK_OUT, \*ESPEAK_IN, 'espeak --stdout') or die "open2() failed $!";
+    open2(\*ESPEAK_OUT, \*ESPEAK_IN, 'espeak-ng --stdout') or die "open2() failed $!";
     print ESPEAK_IN $pieces[$index];
     close(ESPEAK_IN);
     my $sound = <ESPEAK_OUT>;

@@ -7,7 +7,7 @@ by reading it yourself.
 ## Requirements:
 
 * perl (to run the script)
-* espeak (to generate the sound files)
+* espeak-ng (to generate the sound files)
 * sox (to add silence to each sound file)
 * lame (for mp3 encoding)
 

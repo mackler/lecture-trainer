@@ -6,13 +6,19 @@ import sys
 import tempfile
 import subprocess
 
+import torch
+import torchaudio as ta
+from chatterbox.tts import ChatterboxTTS
+
 
 def main():
     if len(sys.argv) < 2 or not sys.argv[1]:
-        sys.stderr.write(f"usage: {sys.argv[0]} <textfile-name>\n")
+        sys.stderr.write(f"usage: {sys.argv[0]} <textfile-name> [voice-wav]\n")
         sys.exit(1)
 
     file = sys.argv[1]
+    voice = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
+
     print(f"Reading from {file}")
 
     with open(file, "r", encoding="utf-8") as fh:
@@ -35,6 +41,13 @@ def main():
     count = len(pieces)
     count_places = len(str(count))
 
+    print("Loading Chatterbox model on CPU")
+    model = ChatterboxTTS.from_pretrained(device="cpu")
+
+    gen_kwargs = {}
+    if voice:
+        gen_kwargs["audio_prompt_path"] = voice
+
     backward = open(os.path.join(outdir, "backward.m3u"), "w")
     forward = open(os.path.join(outdir, "forward.m3u"), "w")
 
@@ -47,39 +60,22 @@ def main():
         if debug:
             print(piece)
 
-        # Synthesize speech. espeak-ng writes WAV bytes to stdout.
-        espeak = subprocess.run(
-            ["espeak-ng", "--stdout"],
-            input=piece.encode("utf-8"),
-            stdout=subprocess.PIPE,
-        )
-        sound = espeak.stdout
-        if espeak.returncode != 0:
-            sys.exit(f'Failed to synthesize "{piece}"\n')
+        # Synthesize speech with Chatterbox. generate() returns a float tensor.
+        wav = model.generate(piece, **gen_kwargs)
+        if wav.dim() == 1:
+            wav = wav.unsqueeze(0)
 
-        # Measure clip length. sox reports statistics on stderr.
-        stat = subprocess.run(
-            ["sox", "-", "-n", "stat"],
-            input=sound,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        # Append trailing silence equal in sample count to the generated audio.
+        silence = torch.zeros(
+            wav.shape[0], wav.shape[-1], dtype=wav.dtype, device=wav.device
         )
-        match = re.search(
-            r"Length \(seconds\):\s*([0-9.]+)",
-            stat.stderr.decode("utf-8", errors="replace"),
-        )
-        if not match:
-            sys.exit("could not determine clip length from sox output\n")
-        seconds = match.group(1)
+        padded = torch.cat([wav, silence], dim=1)
 
-        # Append trailing silence equal to the clip length, then encode to MP3.
+        # Write a temporary 16-bit PCM WAV, then encode it to MP3 with lame.
         fd, tmpfile = tempfile.mkstemp(suffix=".wav")
         os.close(fd)
         try:
-            subprocess.run(
-                ["sox", "-", tmpfile, "pad", "0", seconds],
-                input=sound,
-            )
+            ta.save(tmpfile, padded, model.sr, encoding="PCM_S", bits_per_sample=16)
             subprocess.run(
                 ["lame", "--quiet", tmpfile, os.path.join(outdir, outfile)],
             )

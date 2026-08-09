@@ -7,7 +7,7 @@ by reading it yourself.
 ## Requirements:
 
 * perl (to run the script)
-* espeak-ng (to generate the sound files)
+* chatterbox (to generate the sound files)
 * sox (to add silence to each sound file)
 * lame (for mp3 encoding)
 
@@ -22,6 +22,7 @@ created if necessary.
 
 The name of the script is `render.py`, so
 
+    source ~/chatterbox-venv/bin/activate.fish
     <this-project>/render.py mylecture.txt
 
 will create a directory named `audio/mylecture` into which the resulting

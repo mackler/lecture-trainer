@@ -20,11 +20,11 @@ playlists will be written to a directory having the same name as the
 source file except for the `.txt` suffix.  This output directory will be
 created if necessary.
 
-The name of the script is `render`, so
+The name of the script is `render.py`, so
 
-    ./render mylecture.txt
+    <this-project>/render.py mylecture.txt
 
-will create a directory named `mylecture` into which the resulting
+will create a directory named `audio/mylecture` into which the resulting
 sound and playlist files will go.  The sound files are numbered in
 descending order, and two playlists are created named `backward.m3u`
 and `forward.m3u`.  Each sound file is padded with silence so you can

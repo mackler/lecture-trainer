@@ -11,6 +11,22 @@ import torchaudio as ta
 from chatterbox.tts import ChatterboxTTS
 
 
+def write_atomic(path, lines):
+    """Write lines to path via a temp file in the same directory, then rename."""
+    directory = os.path.dirname(path) or "."
+    fd, tmp = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.writelines(f"{line}\n" for line in lines)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
 def main():
     if len(sys.argv) < 2 or not sys.argv[1]:
         sys.stderr.write(f"usage: {sys.argv[0]} <textfile-name> [voice-wav]\n")
@@ -48,8 +64,8 @@ def main():
     if voice:
         gen_kwargs["audio_prompt_path"] = voice
 
-    backward = open(os.path.join(outdir, "backward.m3u"), "w")
-    forward = open(os.path.join(outdir, "forward.m3u"), "w")
+    backward_lines = []
+    forward_lines = []
 
     for i in range(count):
         outfile = f"{i:0{count_places}d}.mp3"
@@ -82,13 +98,15 @@ def main():
         finally:
             os.remove(tmpfile)
 
-        backward.write(f"{outfile}\n")
-        forward.write(f"{index:0{count_places}d}.mp3\n")
+        backward_lines.append(outfile)
+        forward_lines.append(f"{index:0{count_places}d}.mp3")
 
     print()
 
-    backward.close()
-    forward.close()
+    # Write both playlists only after every MP3 exists. Each write is atomic:
+    # the final name never refers to a partial file.
+    write_atomic(os.path.join(outdir, "backward.m3u"), backward_lines)
+    write_atomic(os.path.join(outdir, "forward.m3u"), forward_lines)
 
 
 if __name__ == "__main__":
